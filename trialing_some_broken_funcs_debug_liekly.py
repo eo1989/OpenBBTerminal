@@ -1,5 +1,10 @@
+<<<<<<< Updated upstream
 from openbb_terminal.sdk import openbb
 openbb.stocks.candle("SPY", use_matplotlib=False)
+=======
+# from openbb_terminal.sdk import openbb
+# openbb.stocks.candle("SPY", use_matplotlib=False)
+>>>>>>> Stashed changes
 
 # from ipywidgets import interact
 # import numpy as np
