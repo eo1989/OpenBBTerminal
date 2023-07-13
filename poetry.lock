@@ -189,13 +189,10 @@ requests = "*"
 
 [[package]]
 name = "altair"
-<<<<<<< HEAD
 version = "5.0.1"
 description = "Vega-Altair: A declarative statistical visualization library for Python."
-=======
 version = "4.2.2"
 description = "Altair: A declarative statistical visualization library for Python."
->>>>>>> upstream/main
 optional = false
 python-versions = ">=3.7"
 files = [
