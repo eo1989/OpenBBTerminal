@@ -48,3 +48,29 @@ This notebook demonstrates how to query the Federal Reserve Economic Database an
 - Perform arithmetic operations on a DataFrame.
 - Normalization methods for a series or DataFrame.
 - Simple processes for creating charts.
+
+### optionsChains
+
+This notebook demonstrates how to fetch and work with options chains data.
+
+- Use the new method for loading options chains data.
+- Examine the differences of the data, between sources.
+- Calculate and visualize volume and open interest by strike and expiration.
+- Calculate and visualize the Net Delta Exposure, in dollars, by strike and expiration.
+- Visualize the term structure of the implied volatility skew.
+- Get tables with multiple single-leg options strategies.
+
+### googleColabInstallation
+
+This notebook demonstrates how to install the OpenBB SDK within Google Colab.
+
+
+### volumeAtPrice
+
+Volume-at-price is a chart used by technical analysts as a visual gauge to where the trading levels are concentrated, relative to price and volume.  In short, it is the sum of volume at different price levels.  This notebook utilizes individual components of the OpenBB SDK and combines them to build a new view.
+
+- Price
+- Volume
+- VWAP
+- SMA
+- OpenBBFigure

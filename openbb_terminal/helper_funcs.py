@@ -87,7 +87,7 @@ MENU_QUIT = 1
 MENU_RESET = 2
 
 GPT_INDEX_DIRECTORY = MISCELLANEOUS_DIRECTORY / "gpt_index/"
-GPT_INDEX_VER = 0.3
+GPT_INDEX_VER = 0.4
 
 
 # Command location path to be shown in the figures depending on watermark flag
@@ -106,6 +106,8 @@ def set_command_location(cmd_loc: str):
     cmd_loc: str
         Command location called by user
     """
+    if cmd_loc.split("/")[-1] == "hold":
+        return
     global command_location  # noqa
     command_location = cmd_loc
 
@@ -261,7 +263,7 @@ def return_colored_value(value: str):
 
 
 # pylint: disable=too-many-arguments
-def print_rich_table(
+def print_rich_table(  # noqa: PLR0912
     df: pd.DataFrame,
     show_index: bool = False,
     title: str = "",
@@ -276,6 +278,7 @@ def print_rich_table(
     print_to_console: bool = False,
     limit: Optional[int] = 1000,
     source: Optional[str] = None,
+    columns_keep_types: Optional[List[str]] = None,
 ):
     """Prepare a table from df in rich.
 
@@ -311,6 +314,8 @@ def print_rich_table(
         console.
     source: Optional[str]
         Source of the table. If provided, it will be displayed in the header of the table.
+    columns_keep_types: Optional[List[str]]
+        Columns to keep their types, i.e. not convert to numeric
     """
     if export:
         return
@@ -327,6 +332,8 @@ def print_rich_table(
     #  convert non-str that are not timestamp or int into str
     # eg) praw.models.reddit.subreddit.Subreddit
     for col in df.columns:
+        if columns_keep_types is not None and col in columns_keep_types:
+            continue
         try:
             if not any(
                 isinstance(df[col].iloc[x], pd.Timestamp)
@@ -525,6 +532,20 @@ def check_positive_list(value) -> List[int]:
     list_of_pos = []
     for a_value in list_of_nums:
         new_value = int(a_value)
+        if new_value <= 0:
+            log_and_raise(
+                argparse.ArgumentTypeError(f"{value} is an invalid positive int value")
+            )
+        list_of_pos.append(new_value)
+    return list_of_pos
+
+
+def check_positive_float_list(value) -> List[float]:
+    """Argparse type to return list of positive floats."""
+    list_of_nums = value.split(",")
+    list_of_pos = []
+    for a_value in list_of_nums:
+        new_value = float(a_value)
         if new_value <= 0:
             log_and_raise(
                 argparse.ArgumentTypeError(f"{value} is an invalid positive int value")
@@ -846,6 +867,8 @@ def us_market_holidays(years) -> list:
 
 def lambda_long_number_format(num, round_decimal=3) -> Union[str, int, float]:
     """Format a long number."""
+    if get_current_user().preferences.USE_INTERACTIVE_DF:
+        return num
 
     if num == float("inf"):
         return "inf"
@@ -1111,7 +1134,7 @@ def get_user_agent() -> str:
         "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:84.0) Gecko/20100101 Firefox/84.0",
     ]
 
-    return random.choice(user_agent_strings)  # nosec
+    return random.choice(user_agent_strings)  # nosec # noqa: S311
 
 
 def text_adjustment_init(self):
@@ -1519,8 +1542,6 @@ def export_data(
     margin : bool
         Automatically adjust subplot parameters to give specified padding.
     """
-    if not figure:
-        figure = OpenBBFigure()
 
     if export_type:
         saved_path = compose_export_path(func_name, dir_path).resolve()
@@ -1599,6 +1620,9 @@ def export_data(
                             writer, sheet_name=sheet_name, index=True, header=True
                         )
             elif saved_path.suffix in [".jpg", ".pdf", ".png", ".svg"]:
+                if figure is None:
+                    console.print("No plot to export.")
+                    continue
                 figure.show(export_image=saved_path, margin=margin)
             else:
                 console.print("Wrong export file specified.")
@@ -1606,7 +1630,8 @@ def export_data(
 
             console.print(f"Saved file: {saved_path}")
 
-        figure._exported = True  # pylint: disable=protected-access
+        if figure is not None:
+            figure._exported = True  # pylint: disable=protected-access
 
 
 def get_rf() -> float:
@@ -1630,7 +1655,7 @@ def get_rf() -> float:
 
 def system_clear():
     """Clear screen."""
-    os.system("cls||clear")  # nosec
+    os.system("cls||clear")  # nosec # noqa: S605,S607
 
 
 def excel_columns() -> List[str]:
@@ -2067,7 +2092,7 @@ def check_start_less_than_end(start_date: str, end_date: str) -> bool:
 
 # Write an abstract helper to make requests from a url with potential headers and params
 def request(
-    url: str, method: str = "GET", timeout: int = 0, **kwargs
+    url: str, method: str = "get", timeout: int = 0, **kwargs
 ) -> requests.Response:
     """Abstract helper to make requests from a url with potential headers and params.
 
@@ -2075,8 +2100,11 @@ def request(
     ----------
     url : str
         Url to make the request to
-    method : str, optional
-        HTTP method to use.  Can be "GET" or "POST", by default "GET"
+    method : str
+        HTTP method to use.  Choose from:
+        delete, get, head, patch, post, put, by default "get"
+    timeout : int
+        How many seconds to wait for the server to send data
 
     Returns
     -------
@@ -2088,6 +2116,9 @@ def request(
     ValueError
         If invalid method is passed
     """
+    method = method.lower()
+    if method not in ["delete", "get", "head", "patch", "post", "put"]:
+        raise ValueError(f"Invalid method: {method}")
     current_user = get_current_user()
     # We want to add a user agent to the request, so check if there are any headers
     # If there are headers, check if there is a user agent, if not add one.
@@ -2097,21 +2128,13 @@ def request(
 
     if "User-Agent" not in headers:
         headers["User-Agent"] = get_user_agent()
-    if method.upper() == "GET":
-        return requests.get(
-            url,
-            headers=headers,
-            timeout=timeout,
-            **kwargs,
-        )
-    if method.upper() == "POST":
-        return requests.post(
-            url,
-            headers=headers,
-            timeout=timeout,
-            **kwargs,
-        )
-    raise ValueError("Method must be GET or POST")
+    func = getattr(requests, method)
+    return func(
+        url,
+        headers=headers,
+        timeout=timeout,
+        **kwargs,
+    )
 
 
 def remove_timezone_from_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -2170,7 +2193,7 @@ def query_LLM_local(query_text, gpt_model):
     # define LLM
     llm_predictor = LLMPredictor(llm=ChatOpenAI(temperature=0.5, model_name=gpt_model))
     # define prompt helper
-    prompt_helper = PromptHelper(max_input_size=4096, num_output=256)
+    prompt_helper = PromptHelper(context_window=4096, num_output=256)
     service_context = ServiceContext.from_defaults(
         llm_predictor=llm_predictor, prompt_helper=prompt_helper
     )
@@ -2272,3 +2295,15 @@ def query_LLM_remote(query_text: str):
         return None, None
 
     return ask_obbrequest_data["response"], ask_obbrequest_data["source_nodes"]
+
+
+def check_valid_date(date_string) -> bool:
+    """ "Helper to see if we can parse the string to a date"""
+    try:
+        # Try to parse the string with strptime()
+        datetime.strptime(
+            date_string, "%Y-%m-%d"
+        )  # Use the format your dates are expected to be in
+        return True  # If it can be parsed, then it is a valid date string
+    except ValueError:  # strptime() throws a ValueError if the string can't be parsed
+        return False

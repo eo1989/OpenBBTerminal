@@ -200,7 +200,7 @@ class OptionsController(BaseController):
                 self.current_price = last_price or 0.0
             elif self.source == "Nasdaq":
                 self.current_price = nasdaq_model.get_underlying_price(self.ticker)[
-                    "lastPrice"
+                    "price"
                 ]
             elif self.source == "Intrinio":
                 self.current_price = intrinio_model.get_last_price(self.ticker)
@@ -800,6 +800,7 @@ class OptionsController(BaseController):
                     call=not ns_parser.put,
                     price=ns_parser.strike,
                     limit=ns_parser.limit,
+                    raw=ns_parser.raw,
                     export=ns_parser.export,
                     chain_id=ns_parser.chain_id,
                     sheet_name=" ".join(ns_parser.sheet_name)
